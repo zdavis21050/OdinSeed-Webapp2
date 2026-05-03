@@ -3,9 +3,16 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-})
+const connectionString = process.env.DATABASE_URL
+
+if (!connectionString) {
+  console.error('DATABASE_URL is not set!')
+  process.exit(1)
+}
+
+console.log('Connecting to database:', connectionString.substring(0, 30) + '...')
+
+export const pool = new Pool({ connectionString })
 
 export async function createTables() {
   await pool.query(`
@@ -18,13 +25,11 @@ export async function createTables() {
       gold_balance INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id),
       expires_at TIMESTAMPTZ NOT NULL
     );
-
     CREATE TABLE IF NOT EXISTS houses (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       owner_id TEXT NOT NULL REFERENCES users(id),
@@ -33,7 +38,6 @@ export async function createTables() {
       last_paid DATE NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
     CREATE TABLE IF NOT EXISTS listings (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       seller_id TEXT NOT NULL REFERENCES users(id),
@@ -46,7 +50,6 @@ export async function createTables() {
       status TEXT NOT NULL DEFAULT 'active',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
     CREATE TABLE IF NOT EXISTS bids (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       listing_id UUID NOT NULL REFERENCES listings(id),
@@ -54,7 +57,6 @@ export async function createTables() {
       amount INTEGER NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
     CREATE TABLE IF NOT EXISTS invites (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       token TEXT NOT NULL UNIQUE,
