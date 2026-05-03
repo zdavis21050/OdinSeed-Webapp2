@@ -2,16 +2,12 @@ import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import dotenv from 'dotenv'
-import { Pool } from 'pg'
+import { pool, createTables } from './db'
 
 dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3001
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-})
 
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }))
 app.use(express.json())
@@ -26,6 +22,13 @@ app.get('/health', async (req, res) => {
   }
 })
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
-})
+createTables()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`)
+    })
+  })
+  .catch(err => {
+    console.error('Failed to create tables:', err)
+    process.exit(1)
+  })
