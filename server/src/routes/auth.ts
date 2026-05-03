@@ -1,30 +1,26 @@
-import express from 'express'
-import cors from 'cors'
-import cookieParser from 'cookie-parser'
-import dotenv from 'dotenv'
-import { pool, createTables } from './db'
+import { Router, Request, Response } from 'express'
+import { pool } from '../db'
 import bcrypt from 'bcrypt'
 import { randomUUID } from 'crypto'
 
-dotenv.config()
+const router = Router()
 
-const app = express()
-const PORT = process.env.PORT || 3001
-
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }))
-app.use(express.json())
-app.use(cookieParser())
-
-app.get('/health', async (req, res) => {
+router.post('/register', async (req: Request, res: Response) => {
+  const { username, password } = req.body
   try {
-    await pool.query('SELECT 1')
-    res.json({ status: 'ok', message: 'Server and database connected' })
-  } catch (err) {
-    res.status(500).json({ status: 'error', message: 'Database connection failed' })
+    const hashed = await bcrypt.hash(password, 10)
+    const id = randomUUID()
+    await pool.query(
+      'INSERT INTO users (id, hashed_password, username) VALUES ($1, $2, $3)',
+      [id, hashed, username]
+    )
+    res.json({ ok: true })
+  } catch (err: any) {
+    res.status(400).json({ error: 'Username already taken' })
   }
 })
 
-app.post('/auth/login', async (req, res) => {
+router.post('/login', async (req: Request, res: Response) => {
   const { username, password } = req.body
   try {
     const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username])
@@ -43,7 +39,7 @@ app.post('/auth/login', async (req, res) => {
 
     res.cookie('session', sessionId, {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       expires: expiresAt
     })
@@ -55,14 +51,16 @@ app.post('/auth/login', async (req, res) => {
   }
 })
 
-app.post('/auth/logout', async (req, res) => {
+router.post('/logout', async (req: Request, res: Response) => {
   const sessionId = req.cookies?.session
-  if (sessionId) await pool.query('DELETE FROM sessions WHERE id = $1', [sessionId])
+  if (sessionId) {
+    await pool.query('DELETE FROM sessions WHERE id = $1', [sessionId])
+  }
   res.clearCookie('session')
   res.json({ ok: true })
 })
 
-app.get('/auth/me', async (req, res) => {
+router.get('/me', async (req: Request, res: Response) => {
   const sessionId = req.cookies?.session
   if (!sessionId) return res.status(401).json({ error: 'Not logged in' })
 
@@ -72,10 +70,8 @@ app.get('/auth/me', async (req, res) => {
   )
   const user = rows[0]
   if (!user) return res.status(401).json({ error: 'Session expired' })
+
   res.json({ user: { id: user.id, username: user.username, role: user.role } })
 })
 
-app.listen(PORT, async () => {
-  await createTables()
-  console.log(`Server running on http://localhost:${PORT}`)
-})
+export default router

@@ -11,7 +11,7 @@ export async function createTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
-      email TEXT NOT NULL UNIQUE,
+      email TEXT UNIQUE,
       hashed_password TEXT,
       username TEXT NOT NULL UNIQUE,
       role TEXT NOT NULL DEFAULT 'member',
@@ -57,7 +57,6 @@ export async function createTables() {
 
     CREATE TABLE IF NOT EXISTS invites (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      email TEXT NOT NULL,
       token TEXT NOT NULL UNIQUE,
       invited_by TEXT NOT NULL REFERENCES users(id),
       used_at TIMESTAMPTZ,
